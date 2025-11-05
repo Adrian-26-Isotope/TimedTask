@@ -48,11 +48,14 @@ public class TimedTaskBuilder {
      * Add a periodic delay to the scheduler. Clears the repetetive delay. The duration is decoupled from the input to
      * prevent strong references to the external {@link Duration}.
      *
-     * @param periodicDelay the fixed delay between task executions
+     * @param delay the fixed delay between task executions
      * @return this builder instance for method chaining
      */
-    public TimedTaskBuilder setPeriodicDelay(final Duration periodicDelay) {
-        this.periodicDelay = Duration.ofNanos(periodicDelay.toNanos());
+    public TimedTaskBuilder setPeriodicDelay(final Duration delay) {
+        if (delay.isNegative()) {
+            throw new IllegalArgumentException("a negative duration is not allowed.");
+        }
+        this.periodicDelay = Duration.ofNanos(delay.toNanos());
         this.repetetiveDelay = null;
         return this;
     }
@@ -62,11 +65,14 @@ public class TimedTaskBuilder {
      * Add a repetetive delay to the scheduler. Clears the periodic delay. The duration is decoupled from the input to
      * prevent strong references to the external {@link Duration}.
      *
-     * @param consecutiveDelay the delay between consecutive task executions
+     * @param delay the delay between consecutive task executions
      * @return this builder instance for method chaining
      */
-    public TimedTaskBuilder setRepetetiveDelay(final Duration consecutiveDelay) {
-        this.repetetiveDelay = Duration.ofNanos(consecutiveDelay.toNanos());
+    public TimedTaskBuilder setRepetetiveDelay(final Duration delay) {
+        if (delay.isNegative()) {
+            throw new IllegalArgumentException("a negative duration is not allowed.");
+        }
+        this.repetetiveDelay = Duration.ofNanos(delay.toNanos());
         this.periodicDelay = null;
         return this;
     }

@@ -1,0 +1,3 @@
+[submodule "external/CustomJavaThreadPool"]
+	path = external/CustomJavaThreadPool
+	url = https://github.com/Adrian-26-Isotope/CustomJavaThreadPool.git

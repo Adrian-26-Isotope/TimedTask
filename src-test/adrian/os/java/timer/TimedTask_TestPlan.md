@@ -43,81 +43,78 @@ This document outlines a comprehensive test plan for the `TimedTask` class, incl
 #### 1.2 Single Execution Mode
 - [x] **testDelayed1** - Single execution without initial delay (EXISTING)
 - [x] **testDelayed2** - Single execution with initial delay (EXISTING)
-- [ ] **testDelayedZeroInitialDelay** - Explicit zero initial delay
+- [x] **testDelayedZeroInitialDelay** - Explicit zero initial delay
 
 #### 1.3 Periodic Execution Mode
 - [x] **testPeriodic** - Basic periodic execution (EXISTING)
-- [ ] **testPeriodicMultipleCycles** - Run 5+ periodic executions
-- [ ] **testPeriodicStopDuringExecution** - Stop while task is executing
-- [ ] **testPeriodicWithInitialDelay** - Periodic + initial delay combination
-- [ ] **testPeriodicShortDelay** - Periodic with sub-second delays (100ms)
-- [ ] **testPeriodicLongRunningTask** - Task duration > periodic delay
+- [x] **testPeriodicMultipleCycles** - Run 5+ periodic executions
+- [x] **testPeriodicStopDuringExecution** - Stop while task is executing
+- [x] **testPeriodicWithInitialDelay** - Periodic + initial delay combination
+- [x] **testPeriodicShortDelay** - Periodic with sub-second delays (100ms)
+- [x] **testPeriodicLongRunningTask** - Task duration > periodic delay
 
 #### 1.4 Repetitive Execution Mode
 - [x] **testRepetetive** - Basic repetitive execution (EXISTING)
-- [ ] **testRepetetiveMultipleCycles** - Run 5+ repetitive executions
-- [ ] **testRepetetiveStopDuringExecution** - Stop while task is executing
-- [ ] **testRepetetiveWithInitialDelay** - Repetitive + initial delay combination
-- [ ] **testRepetetiveShortDelay** - Repetitive with sub-second delays (100ms)
-- [ ] **testRepetetiveVariableTaskDuration** - Task duration varies between executions
+- [x] **testRepetetiveMultipleCycles** - Run 5+ repetitive executions
+- [x] **testRepetetiveStopDuringExecution** - Stop while task is executing
+- [x] **testRepetetiveWithInitialDelay** - Repetitive + initial delay combination
+- [x] **testRepetetiveShortDelay** - Repetitive with sub-second delays (100ms)
+- [x] **testRepetetiveVariableTaskDuration** - Task duration varies between executions
 
 ### 2. Named Task Tests
-- [ ] **testNamedTask** - Create task with name, verify thread/task naming
-- [ ] **testNamedTaskWithBlankName** - Blank name should behave as unnamed
-- [ ] **testNamedTaskWithNullName** - Null name should behave as unnamed
-- [ ] **testNamedPeriodicTask** - Verify task counter increments in name
-- [ ] **testMultipleNamedTasks** - Multiple tasks with different names
+- [x] **testNamedTask** - Create task with name, verify thread/task naming
+- [x] **testNamedTaskWithBlankName** - Blank name should behave as unnamed
+- [x] **testNamedTaskWithNullName** - Null name should behave as unnamed
+- [x] **testNamedPeriodicTask** - Verify task counter increments in name
+- [x] **testMultipleNamedTasks** - Multiple tasks with different names
 
 ### 3. Timing and Precision Tests
-- [ ] **testInitialDelayPrecision** - Verify task starts close to expected time
-- [ ] **testPeriodicDelayPrecision** - Verify periodic executions are on schedule
-- [ ] **testRepetetiveDelayPrecision** - Verify repetitive delay is accurate
-- [ ] **testNextExecutionTime** - Verify getNextExecution() returns correct values
-- [ ] **testMidnightRollover** - Test scheduling across midnight boundary
+- [x] **testInitialDelayPrecision** - Verify task starts close to expected time
+- [x] **testPeriodicDelayPrecision** - Verify periodic executions are on schedule
+- [x] **testRepetetiveDelayPrecision** - Verify repetitive delay is accurate
+- [x] **testNextExecutionTime** - Verify getNextExecution() returns correct values
 
 ### 4. Error Handling and Robustness
-- [ ] **testTaskThrowsException** - Task throws exception, timer continues
-- [ ] **testTaskThrowsRuntimeException** - Task throws unchecked exception
-- [ ] **testTaskInterrupted** - Task handles interruption correctly
-- [ ] **testNullTask** - Attempt to create timer with null task
-- [ ] **testNegativeDelay** - Attempt to set negative delay durations
-- [ ] **testExtremelyLongDelay** - Test with Duration.ofDays(365)
+- [x] **testTaskThrowsException** - Task throws exception, timer continues
+- [x] **testTaskThrowsRuntimeException** - Task throws unchecked exception
+- [x] **testTaskInterrupted** - Task handles interruption correctly
+- [x] **testNullTask** - Attempt to create timer with null task
+- [x] **testNegativeInitialDelay** - Initial delay with negative duration (treated as zero)
+- [x] **testNegativePeriodicDelay** - Periodic delay with negative duration (throws IllegalArgumentException)
+- [x] **testNegativeRepetitiveDelay** - Repetitive delay with negative duration (throws IllegalArgumentException)
+- [x] **testExtremelyLongDelay** - Test with Duration.ofDays(365)
 
 ### 4.1 Task Self-Control Tests
 > **Note:** TimedTask uses `Consumer<TimedTask>` as the task type, passing itself to `accept()`. This allows tasks to control their own timer.
 
-- [ ] **testTaskStopsItself** - Task calls `timedTask.stop()` to terminate execution
-- [ ] **testTaskStopsItselfInPeriodicMode** - Periodic task stops itself after N executions
-- [ ] **testTaskStopsItselfInRepetitiveMode** - Repetitive task stops itself after N executions
-- [ ] **testTaskChecksIsRunning** - Task queries `timedTask.isRunning()` during execution
-- [ ] **testTaskAccessesNextExecution** - Task calls `timedTask.getNextExecution()` (if accessible)
-- [ ] **testTaskTriesToRestartItself** - Task calls `timedTask.start()` while running (should fail)
-- [ ] **testTaskSelfStopRaceCondition** - Task stops itself while external thread also calls stop()
-- [ ] **testConditionalSelfStop** - Task stops itself based on some condition (e.g., counter threshold)
+- [x] **testTaskStopsItself** - Task calls `timedTask.stop()` to terminate execution
+- [x] **testTaskStopsItselfInPeriodicMode** - Periodic task stops itself after N executions
+- [x] **testTaskStopsItselfInRepetitiveMode** - Repetitive task stops itself after N executions
+- [x] **testTaskChecksIsRunning** - Task queries `timedTask.isRunning()` during execution
+- [x] **testTaskTriesToRestartItself** - Task calls `timedTask.start()` while running (should fail)
+- [x] **testTaskSelfStopRaceCondition** - Task stops itself while external thread also calls stop()
 
 ### 5. Concurrency Tests
-- [ ] **testMultipleConcurrentTasks** - Run 10+ tasks simultaneously
-- [ ] **testStopFromAnotherThread** - Stop task from different thread
-- [ ] **testRaceConditionOnStart** - Multiple threads call start() simultaneously
-- [ ] **testRaceConditionOnStop** - Multiple threads call stop() simultaneously
-- [ ] **testTaskAccessesSharedState** - Multiple tasks modifying shared counter
+- [x] **testMultipleConcurrentTasks** - Run 10+ tasks simultaneously
+- [x] **testStopFromAnotherThread** - Stop task from different thread
+- [x] **testRaceConditionOnStart** - Multiple threads call start() simultaneously
+- [x] **testRaceConditionOnStop** - Multiple threads call stop() simultaneously
+- [x] **testTaskAccessesSharedState** - Multiple tasks modifying shared counter
 
 ### 6. Performance Tests
-- [ ] **testHighFrequencyPeriodic** - 100ms periodic delay, 100 iterations
-- [ ] **testHighFrequencyRepetetive** - 100ms repetitive delay, 100 iterations
-- [ ] **testManyShortTasks** - Many tasks executing in quick succession
-- [ ] **testMemoryLeakOnRepeatedCreation** - Create/destroy many tasks
+- [x] **testHighFrequencyPeriodic** - 10ms periodic delay, 100 iterations
+- [x] **testHighFrequencyRepetetive** - 10ms repetitive delay, 100 iterations
+- [x] **testManyShortTasks** - Many tasks executing in quick succession
+- [x] **testMemoryLeakOnRepeatedCreation** - Create/destroy many tasks
 
 ### 7. Edge Cases
-- [ ] **testZeroDurationTask** - Task that completes instantly
-- [ ] **testVeryLongRunningTask** - Task that runs for 10+ seconds
-- [ ] **testPeriodicWithZeroDelay** - Duration.ZERO for periodic delay
-- [ ] **testRepetetiveWithZeroDelay** - Duration.ZERO for repetitive delay
-- [ ] **testStopImmediatelyAfterStart** - Stop within milliseconds of starting
-- [ ] **testEmptyRunnableTask** - Task with no-op runnable
-- [ ] **testRestartDuringExecution** - Stop and restart while task is executing
-- [ ] **testRestartImmediatelyAfterStop** - Restart within milliseconds of stopping
-- [ ] **testBuildWithoutStart** - Build task but never call start(), verify no execution
+- [x] **testVeryLongRunningTask** - Task that runs for 10+ seconds
+- [x] **testPeriodicWithZeroDelay** - Duration.ZERO for periodic delay
+- [x] **testRepetetiveWithZeroDelay** - Duration.ZERO for repetitive delay
+- [x] **testStopImmediatelyAfterStart** - Stop within milliseconds of starting
+- [x] **testRestartDuringExecution** - Stop and restart while task is executing
+- [x] **testRestartImmediatelyAfterStop** - Restart within milliseconds of stopping
+- [x] **testBuildWithoutStart** - Build task but never call start(), verify no execution
 
 ---
 
@@ -242,6 +239,13 @@ private void waitForAllTasksCompletion(Duration timeout)
 ---
 
 ## Notes and Considerations
+
+### Negative Delay Behavior
+- **Initial Delay**: Negative values are treated as zero (immediate execution). No exception is thrown.
+- **Periodic Delay**: Negative values throw `IllegalArgumentException` from the builder.
+- **Repetitive Delay**: Negative values throw `IllegalArgumentException` from the builder.
+
+This design ensures that periodic and repetitive modes have valid, positive delays while allowing flexibility for initial delays.
 
 ### Timing Sensitivity
 - Use appropriate tolerances for timing assertions (e.g., ±50-100ms)

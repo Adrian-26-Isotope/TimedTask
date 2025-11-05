@@ -1,7 +1,9 @@
 package adrian.os.java.timer;
 
 import java.time.Duration;
+import java.time.LocalDateTime;
 import java.time.LocalTime;
+import java.util.Objects;
 import java.util.function.Consumer;
 
 /**
@@ -30,7 +32,7 @@ public class TimedTask {
     /* internal fields */
     private long count = 0;
     private final Timer timer = new Timer();
-    private volatile LocalTime nextExecution;
+    private volatile LocalDateTime nextExecution;
     private volatile State state = State.NOT_RUNNING;
     private final Object executionLock = new Object();
 
@@ -39,17 +41,17 @@ public class TimedTask {
      * @param task the task to be executed by this timer.
      */
     protected TimedTask(final Consumer<TimedTask> task, final AbstractTimedTaskExecutor exec) {
-        this.task = task;
+        this.task = Objects.requireNonNull(task);
         this.executor = exec;
     }
 
     /**
      * start the timer thread.
      */
-    public boolean start() {
+    public synchronized boolean start() {
         if (getState() == State.NOT_RUNNING) {
-            setNextExecutionTime(LocalTime.now().plus(this.initialDelay));
             setState(State.RUNNING);
+            setNextExecutionTime(LocalDateTime.now().plus(this.initialDelay));
             if ((this.name == null) || this.name.isBlank()) {
                 this.executor.run(this.timer::runTimer);
             }
@@ -66,7 +68,7 @@ public class TimedTask {
      * stop any reoccuring executions and terminate this timer gracefully. Once
      * stopped it can be started again.
      */
-    public void stop() {
+    public synchronized void stop() {
         setState(State.NOT_RUNNING);
         // notify waiting timer thread
         setNextExecutionTime(null);
@@ -109,14 +111,14 @@ public class TimedTask {
     /**
      * @return the time the next execution shall be triggered.
      */
-    protected LocalTime getNextExecution() {
+    protected LocalDateTime getNextExecution() {
         return this.nextExecution;
     }
 
     /**
      * set the new next execution time.
      */
-    protected void setNextExecutionTime(final LocalTime time) {
+    protected void setNextExecutionTime(final LocalDateTime time) {
         synchronized (this.executionLock) {
             this.nextExecution = time;
             this.executionLock.notifyAll();
@@ -179,7 +181,7 @@ public class TimedTask {
         private void loopTimer() {
             try {
                 while (isHealty()) {
-                    if (getNextExecution().compareTo(LocalTime.now()) <= 0) {
+                    if (getNextExecution().compareTo(LocalDateTime.now()) <= 0) {
                         calculatePeriodicExecutionTime();
                         executeTask();
                     }
@@ -239,7 +241,7 @@ public class TimedTask {
          */
         private void calculateRepetetiveExecutionTime() {
             if (TimedTask.this.repetetiveDelay != null) {
-                setNextExecutionTime(LocalTime.now().plus(TimedTask.this.repetetiveDelay));
+                setNextExecutionTime(LocalDateTime.now().plus(TimedTask.this.repetetiveDelay));
             }
             else if (TimedTask.this.periodicDelay == null) {
                 // SINGLE TASK EXECUTION SCENARIO
