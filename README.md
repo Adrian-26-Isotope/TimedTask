@@ -8,7 +8,6 @@ A lightweight, flexible timer task scheduler for Java with fine-grained control 
 - [Features](#features)
 - [Key Differences from Java's ScheduledExecutorService](#key-differences-from-javas-scheduledexecutorservice)
 - [Architecture](#architecture)
-- [Installation](#installation)
 - [Usage Guide](#usage-guide)
   - [Creating a TimedTask](#creating-a-timedtask)
   - [Execution Modes](#execution-modes)
