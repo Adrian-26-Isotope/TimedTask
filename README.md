@@ -8,6 +8,7 @@ A lightweight, flexible timer task scheduler for Java with fine-grained control 
 - [Features](#features)
 - [Key Differences from Java's ScheduledExecutorService](#key-differences-from-javas-scheduledexecutorservice)
 - [Architecture](#architecture)
+- [Installation](#installation)
 - [Usage Guide](#usage-guide)
   - [Creating a TimedTask](#creating-a-timedtask)
   - [Execution Modes](#execution-modes)
@@ -190,11 +191,11 @@ AbstractTimedTaskExecutor customExec = new MyCustomExecutor();
 - Timer thread and task execution threads are separate, allowing fine-grained resource control
 
 ```java
+// Warning in JavaDoc: Avoid strong references to external objects
+// Use WeakReference for long-lived external objects
+WeakReference<MyService> serviceRef = new WeakReference<>(myService);
 // TimedTask resource management
 TimedTask task = executor.createTimedTask(t -> {
-    // Warning in JavaDoc: Avoid strong references to external objects
-    // Use WeakReference for long-lived external objects
-    WeakReference<MyService> serviceRef = new WeakReference<>(myService);
     MyService service = serviceRef.get();
     if (service != null) {
         service.doWork();
@@ -212,35 +213,10 @@ poolExecutor.shutdown();
 #### 5. Task Control and Introspection
 
 **ScheduledExecutorService**:
-- Limited state introspection - only `ScheduledFuture.isDone()` and `isCancelled()`
-- `isDone()` returns `true` for completed tasks, but periodic tasks never complete until cancelled
-- `isCancelled()` indicates if the task was explicitly cancelled
-- No built-in way to query if a periodic task is actively scheduled and running
-- No access to execution count or timing information
-- No mechanism for tasks to introspect or control themselves
-- Task state and metadata must be tracked externally if needed
-
-```java
-// ScheduledExecutorService - limited introspection
-ScheduledExecutorService executor = Executors.newScheduledThreadPool(1);
-ScheduledFuture<?> future = executor.scheduleAtFixedRate(task, 0, 1, TimeUnit.SECONDS);
-
-// Check if cancelled
-if (future.isCancelled()) {
-    System.out.println("Task was cancelled");
-}
-
-// For periodic tasks, isDone() is only true after cancellation
-if (future.isDone()) {
-    System.out.println("Task completed or cancelled");
-}
-
-// No built-in way to check if actively running
-// Must implement custom state tracking
-```
+- Limited state introspection and self control.
 
 **TimedTask**:
-- **Public API**: `isRunning()` method provides clear boolean state - `true` when task is actively scheduled, `false` when stopped
+- **Public API**: `isRunning()` method provides clear boolean state - `true` when timer is currently scheduled, `false` when stopped
 - **Self-Reference**: Tasks receive reference to themselves (`Consumer<TimedTask>`), enabling self-introspection and self-control
 - **Self-Stopping**: Tasks can stop themselves based on internal logic or conditions
 - **Named Tasks**: Optional naming propagates to execution threads for debugging:
@@ -707,6 +683,8 @@ task1.start();
 task2.start();
 
 // Later: shutdown the pool when all tasks are done
+task1.stop();
+task2.stop();
 executor.shutdown();
 ```
 
@@ -738,7 +716,7 @@ TimedTask task = executor.createTimedTask(t -> {
 - Memory efficiency is a priority
 
 **Important Notes:**
-- Currently, task names are not propagated to pool threads (limitation noted in architecture)
+- Currently, task names are not propagated to pool threads (limitation noted)
 - Remember to call `shutdown()` on the pool executor when done
 - The pool scales down automatically when threads are idle
 
@@ -776,12 +754,6 @@ TimedTask delayed = executor.createTimedTask(t -> {
 delayed.start();
 // Waits 5 seconds, executes once, then stops
 ```
-
-**Use Cases:**
-- Delayed initialization tasks
-- Scheduled one-time cleanup operations
-- Deferred execution after a startup period
-- One-shot notifications or alerts
 
 **Behavior:**
 - Task transitions to `NOT_RUNNING` state after execution
@@ -845,13 +817,6 @@ Execute: X===  |     |     |
 - **No drift**: Long-term scheduling stays accurate (no cumulative timing errors)
 - **Overlap possible**: If execution takes longer than the period, executions may overlap (multiple tasks running simultaneously)
 
-**Use Cases:**
-- Regular health checks or monitoring (every N seconds)
-- Periodic data synchronization
-- Fixed-rate sensor readings
-- Scheduled report generation
-- Heartbeat mechanisms
-
 **When to use:**
 - You need predictable, fixed-rate execution
 - Timing accuracy is important
@@ -907,13 +872,6 @@ Next execution = completion time + 5s delay
 - **No overlap**: Tasks never overlap; each execution completes before the next starts
 - **Variable intervals**: Total time between starts = execution time + delay
 - **Self-throttling**: Automatically adjusts to task execution time
-
-**Use Cases:**
-- Processing work queues (variable processing time)
-- Tasks that must not overlap
-- Resource-intensive operations requiring cool-down periods
-- Operations that depend on completion of previous execution
-- Polling mechanisms with guaranteed separation
 
 **When to use:**
 - Tasks have variable execution times
@@ -1037,7 +995,7 @@ TimedTaskPoolExecutor javaPoolExecutor = new TimedTaskPoolExecutor(javaExecutor)
 
 **Resource Model:**
 
-- **Timer threads**: Each task still gets its own timer thread (1 per running task)
+- **Timer threads**: Each task draws one timer thread from the pool while in `RUNNING` state
 - **Execution threads**: Drawn from shared pool, reused across all tasks
 - **Pool sizing**: Dynamically adjusted based on configuration and demand
 
@@ -1071,7 +1029,6 @@ executor.shutdown();  // Initiates graceful shutdown
 - Task names currently not propagated to pool threads (known limitation)
 - Shared pool means tasks can affect each other's performance ⚠️
 - Must remember to shutdown pool when done
-- Timer threads still created individually per task
 
 **Best Used For:**
 - Many concurrent tasks
@@ -1124,13 +1081,6 @@ MyCustomExecutor executor = new MyCustomExecutor();
 TimedTask task = executor.createTimedTask(t -> doWork()).build();
 ```
 
-**Custom Executor Use Cases:**
-- Integrating with existing thread management systems
-- Adding execution metrics or monitoring
-- Implementing custom thread routing logic
-- Wrapping tasks with additional behavior (logging, tracing, etc.)
-- Platform-specific thread optimizations
-
 ### Controlling Task Lifecycle
 
 TimedTask provides simple, intuitive methods for controlling task execution. Each task is an independent object with its own lifecycle that can be managed without affecting other tasks.
@@ -1138,20 +1088,6 @@ TimedTask provides simple, intuitive methods for controlling task execution. Eac
 #### Starting Tasks
 
 Use the `start()` method to begin task execution. This transitions the task from `NOT_RUNNING` to `RUNNING` state and spawns the timer thread.
-
-**Basic Start:**
-
-```java
-TimedTask task = executor.createTimedTask(t -> {
-    performWork();
-})
-.setPeriodicDelay(Duration.ofSeconds(10))
-.build();
-
-// Start the task
-boolean started = task.start();  // Returns true on success
-// Task is now running
-```
 
 **Start Behavior:**
 
@@ -1182,33 +1118,11 @@ task.start();
 
 **Thread Safety:**
 
-The `start()` method is `synchronized`, making it safe to call from multiple threads:
-
-```java
-// Safe to call from multiple threads
-new Thread(() -> task.start()).start();
-new Thread(() -> task.start()).start();
-// Only one start() will succeed; the other returns false
-```
+The `start()` method is `synchronized`, making it safe to call from multiple threads.
 
 #### Stopping Tasks
 
 Use the `stop()` method to halt task execution. This transitions the task to `NOT_RUNNING` state and terminates the timer thread gracefully.
-
-**Basic Stop:**
-
-```java
-TimedTask task = executor.createTimedTask(t -> {
-    performWork();
-})
-.setPeriodicDelay(Duration.ofSeconds(10))
-.build();
-
-task.start();
-// ... task runs for a while ...
-task.stop();  // Gracefully stops the task
-// Task is now stopped
-```
 
 **Stop Behavior:**
 
@@ -1241,36 +1155,11 @@ task.stop();         // Stop while task is executing
 
 **Thread Safety:**
 
-The `stop()` method is `synchronized` and thread-safe:
-
-```java
-// Multiple threads can safely call stop()
-new Thread(() -> task.stop()).start();
-new Thread(() -> task.stop()).start();
-// Both calls are safe; task stops once
-```
+The `stop()` method is `synchronized` and thread-safe.
 
 #### Restarting Tasks
 
 Tasks can be restarted after stopping, using the same configuration. Simply call `start()` again.
-
-**Basic Restart:**
-
-```java
-TimedTask task = executor.createTimedTask(t -> {
-    processData();
-})
-.setPeriodicDelay(Duration.ofMinutes(1))
-.build();
-
-// First run
-task.start();
-Thread.sleep(Duration.ofMinutes(5));
-task.stop();
-
-// Restart with same configuration
-task.start();  // Task resumes with same 1-minute period
-```
 
 **Restart Behavior:**
 
@@ -1280,31 +1169,9 @@ task.start();  // Task resumes with same 1-minute period
 - **Initial delay reapplied**: If configured, initial delay applies again on restart
 - **Unlimited restarts**: Tasks can be stopped and restarted indefinitely
 
-**Use Cases for Restart:**
-
-- **Pause/Resume**: Temporarily stop a task and resume later
-- **On-Demand Execution**: Start task when needed, stop when idle
-- **Dynamic Scheduling**: Stop task, reconfigure environment, restart
-- **Error Recovery**: Stop task on error, fix issue, restart
-
 #### Checking Task State
 
 Use the `isRunning()` method to check if a task is actively running.
-
-**Basic State Check:**
-
-```java
-TimedTask task = executor.createTimedTask(t -> {
-    performWork();
-})
-.build();
-
-System.out.println("Running: " + task.isRunning());  // false
-task.start();
-System.out.println("Running: " + task.isRunning());  // true
-task.stop();
-System.out.println("Running: " + task.isRunning());  // false
-```
 
 **State Check Behavior:**
 
@@ -1381,24 +1248,8 @@ TimedTask monitoringTask = executor.createTimedTask(t -> {
 })
 .setPeriodicDelay(Duration.ofSeconds(10))
 .build();
-```
 
-**Task Checks Its Own State:**
-
-```java
-TimedTask introspectiveTask = executor.createTimedTask(t -> {
-    System.out.println("Am I running? " + t.isRunning());  // Always true during execution
-
-    performWork();
-
-    // Conditional self-stop
-    if (shouldStop()) {
-        System.out.println("Stopping myself");
-        t.stop();
-    }
-})
-.setPeriodicDelay(Duration.ofSeconds(5))
-.build();
+monitoringTask.start();
 ```
 
 #### Lifecycle Summary
@@ -1431,9 +1282,9 @@ Note: start() on RUNNING task returns false (no state change)
 **Key Lifecycle Points:**
 
 1. **Creation**: Task starts in `NOT_RUNNING` state
-2. **Start**: Transitions to `RUNNING`, creates timer thread
+2. **Start**: Transitions to `RUNNING`, starts timer runnable
 3. **Running**: Task executes according to configuration
-4. **Stop**: Transitions to `NOT_RUNNING`, terminates timer thread
+4. **Stop**: Transitions to `NOT_RUNNING`, terminates timer runnable
 5. **Restart**: Can repeat start-stop cycle indefinitely
 6. **Self-stop**: Task can stop itself from within execution
 7. **One-time**: Automatically stops after single execution (if no periodic/repetitive delay)
@@ -1443,46 +1294,6 @@ Note: start() on RUNNING task returns false (no state change)
 ### Custom Thread Factories
 
 `TimedTaskThreadExecutor` allows you to customize thread creation behavior through the `ThreadFactory` interface. This provides fine-grained control over thread properties and behavior.
-
-#### Why Use Custom Thread Factories?
-
-Custom thread factories enable you to:
-
-- **Control thread type**: Choose between platform threads and virtual threads
-- **Set thread properties**: Configure daemon status, priority, and thread groups
-- **Implement naming conventions**: Apply custom naming schemes for easier debugging
-- **Add exception handling**: Attach uncaught exception handlers
-- **Integrate with monitoring**: Wrap thread creation with metrics or logging
-- **Enforce security policies**: Apply security managers or access controls
-
-#### Basic Custom ThreadFactory
-
-**Simple Platform Threads:**
-
-```java
-ThreadFactory platformThreadFactory = runnable -> {
-    Thread thread = new Thread(runnable);
-    thread.setDaemon(true);  // Background threads
-    return thread;
-};
-
-TimedTaskThreadExecutor executor = new TimedTaskThreadExecutor();
-executor.setThreadFactory(platformThreadFactory);
-```
-
-**Virtual Threads (Explicit):**
-
-```java
-ThreadFactory virtualThreadFactory = Thread.ofVirtual().factory();
-
-TimedTaskThreadExecutor executor = new TimedTaskThreadExecutor();
-executor.setThreadFactory(virtualThreadFactory);
-// This is actually the default, shown here for clarity
-```
-
-#### Advanced ThreadFactory Examples
-
-**Custom Naming Convention:**
 
 ```java
 ThreadFactory namedThreadFactory = new ThreadFactory() {
@@ -1499,140 +1310,6 @@ ThreadFactory namedThreadFactory = new ThreadFactory() {
 executor.setThreadFactory(namedThreadFactory);
 // Threads will be named: MyApp-Worker-1, MyApp-Worker-2, etc.
 ```
-
-**With Uncaught Exception Handler:**
-
-```java
-ThreadFactory safeThreadFactory = runnable -> {
-    Thread thread = new Thread(runnable);
-    thread.setDaemon(true);
-    thread.setUncaughtExceptionHandler((t, e) -> {
-        System.err.println("Uncaught exception in thread " + t.getName());
-        e.printStackTrace();
-        // Could also log to file, send alert, etc.
-    });
-    return thread;
-};
-
-executor.setThreadFactory(safeThreadFactory);
-```
-
-**High-Priority Threads:**
-
-```java
-ThreadFactory priorityThreadFactory = runnable -> {
-    Thread thread = new Thread(runnable);
-    thread.setPriority(Thread.MAX_PRIORITY);
-    thread.setDaemon(false);  // Prevent JVM exit until task completes
-    return thread;
-};
-
-executor.setThreadFactory(priorityThreadFactory);
-// Use for critical tasks that need maximum CPU priority
-```
-
-**Thread Groups for Organization:**
-
-```java
-ThreadGroup taskGroup = new ThreadGroup("TimedTaskGroup");
-
-ThreadFactory groupThreadFactory = runnable -> {
-    Thread thread = new Thread(taskGroup, runnable);
-    thread.setDaemon(true);
-    return thread;
-};
-
-executor.setThreadFactory(groupThreadFactory);
-
-// Later: Monitor all threads in the group
-System.out.println("Active threads: " + taskGroup.activeCount());
-```
-
-**Monitoring and Metrics:**
-
-```java
-AtomicLong totalThreadsCreated = new AtomicLong(0);
-AtomicLong activeThreads = new AtomicLong(0);
-
-ThreadFactory monitoredThreadFactory = runnable -> {
-    Runnable wrappedRunnable = () -> {
-        activeThreads.incrementAndGet();
-        try {
-            runnable.run();
-        } finally {
-            activeThreads.decrementAndGet();
-        }
-    };
-
-    Thread thread = Thread.ofVirtual().factory().newThread(wrappedRunnable);
-    totalThreadsCreated.incrementAndGet();
-    return thread;
-};
-
-executor.setThreadFactory(monitoredThreadFactory);
-
-// Monitor metrics
-System.out.println("Total threads created: " + totalThreadsCreated.get());
-System.out.println("Currently active: " + activeThreads.get());
-```
-
-**Combining Multiple Concerns:**
-
-```java
-class CustomThreadFactory implements ThreadFactory {
-    private final AtomicInteger threadNumber = new AtomicInteger(1);
-    private final String namePrefix;
-    private final boolean daemon;
-    private final int priority;
-    private final ThreadGroup group;
-
-    public CustomThreadFactory(String namePrefix, boolean daemon, int priority) {
-        this.namePrefix = namePrefix;
-        this.daemon = daemon;
-        this.priority = priority;
-        this.group = new ThreadGroup(namePrefix + "-group");
-    }
-
-    @Override
-    public Thread newThread(Runnable r) {
-        Thread thread = new Thread(group, r);
-        thread.setName(namePrefix + "-" + threadNumber.getAndIncrement());
-        thread.setDaemon(daemon);
-        thread.setPriority(priority);
-        thread.setUncaughtExceptionHandler((t, e) -> {
-            System.err.println("Exception in " + t.getName() + ": " + e);
-        });
-        return thread;
-    }
-}
-
-// Usage
-ThreadFactory factory = new CustomThreadFactory("DataProcessor", true, Thread.NORM_PRIORITY);
-executor.setThreadFactory(factory);
-```
-
-#### ThreadFactory Best Practices
-
-1. **Always set daemon status**: Prevents threads from keeping JVM alive unintentionally
-2. **Use meaningful names**: Makes debugging and thread dumps much easier
-3. **Handle uncaught exceptions**: Prevents silent failures
-4. **Consider virtual threads**: Default virtual threads are lightweight and efficient
-5. **Don't block in factory**: Thread creation should be fast; avoid I/O or heavy computation
-6. **Document thread properties**: Make it clear what properties your factory sets
-
-#### When to Use Each Thread Type
-
-**Virtual Threads (Default):**
-- Most use cases
-- Many concurrent tasks
-- I/O-bound operations
-- Lightweight task isolation
-
-**Platform Threads:**
-- CPU-intensive workloads
-- Tasks requiring specific thread properties
-- Integration with thread-per-core architectures
-- When thread pinning is a concern
 
 ### Working with Thread Pools
 
@@ -1661,7 +1338,7 @@ TimedTaskPoolExecutor executor = new TimedTaskPoolExecutor();
 - Pool starts with zero threads
 - Threads created on demand when tasks execute
 - Idle threads terminate after 60 seconds
-- Pool scales down to zero when all tasks stop
+- Pool scales down to zero when all threads are idle
 - Memory efficient for intermittent task execution
 
 #### Custom Pool Configurations
@@ -1677,45 +1354,6 @@ CustomThreadPool pool = CustomThreadPool.builder()
 
 TimedTaskPoolExecutor executor = new TimedTaskPoolExecutor(pool);
 ```
-
-**Use for:**
-- Applications with constant background activity
-- Reducing latency (threads already available)
-- Predictable resource usage
-
-**Aggressive Scaling Down:**
-
-```java
-CustomThreadPool pool = CustomThreadPool.builder()
-    .setMinThreads(0)
-    .setIdleTime(Duration.ofSeconds(10))  // Quick termination
-    .setName("DynamicPool")
-    .build();
-
-TimedTaskPoolExecutor executor = new TimedTaskPoolExecutor(pool);
-```
-
-**Use for:**
-- Memory-constrained environments
-- Sporadic task execution
-- Applications with long idle periods
-
-**Conservative Scaling (Long Idle Time):**
-
-```java
-CustomThreadPool pool = CustomThreadPool.builder()
-    .setMinThreads(2)
-    .setIdleTime(Duration.ofMinutes(30))  // Keep threads around longer
-    .setName("StablePool")
-    .build();
-
-TimedTaskPoolExecutor executor = new TimedTaskPoolExecutor(pool);
-```
-
-**Use for:**
-- Tasks with variable frequency
-- Reducing thread creation overhead
-- Stable, long-running applications
 
 #### Named Thread Pools
 
@@ -1736,37 +1374,6 @@ TimedTaskPoolExecutor executor = new TimedTaskPoolExecutor(pool);
 ```
 
 Threads in the pool will have names based on the pool name, making them easy to identify in monitoring tools.
-
-#### Multiple Pools for Different Task Types
-
-Organize tasks by type or priority using separate pools:
-
-```java
-// High-priority, quick tasks
-CustomThreadPool priorityPool = CustomThreadPool.builder()
-    .setMinThreads(4)
-    .setIdleTime(Duration.ofMinutes(2))
-    .setName("HighPriority")
-    .build();
-TimedTaskPoolExecutor priorityExecutor = new TimedTaskPoolExecutor(priorityPool);
-
-// Low-priority, longer-running tasks
-CustomThreadPool backgroundPool = CustomThreadPool.builder()
-    .setMinThreads(1)
-    .setIdleTime(Duration.ofMinutes(10))
-    .setName("Background")
-    .build();
-TimedTaskPoolExecutor backgroundExecutor = new TimedTaskPoolExecutor(backgroundPool);
-
-// Create tasks with appropriate executor
-TimedTask criticalTask = priorityExecutor.createTimedTask(t -> {
-    performCriticalWork();
-}).setPeriodicDelay(Duration.ofSeconds(30)).build();
-
-TimedTask maintenanceTask = backgroundExecutor.createTimedTask(t -> {
-    performMaintenance();
-}).setPeriodicDelay(Duration.ofHours(1)).build();
-```
 
 #### Using Standard Java Executors
 
@@ -1844,35 +1451,10 @@ try {
     // task1.stop(); // CAN BE SKIPPED
     // task2.stop(); // CAN BE SKIPPED
 
-    // Shutdown the pool
+    // Shutdown the pool forcefully
     executor.shutdownNow();
 }
 ```
-
-**Shutdown Behavior:**
-
-```java
-executor.shutdown();  // Initiates graceful shutdown
-
-// Check termination status
-boolean terminated = executor.awaitTermination(Duration.ofSeconds(10));
-
-if (!terminated) {
-    // Force shutdown if graceful shutdown takes too long
-    List<Runnable> pendingTasks = executor.shutdownNow();
-    System.out.println("Forcibly terminated. Pending tasks: " + pendingTasks.size());
-}
-```
-
-#### Thread Pool Best Practices
-
-1. **Name your pools**: Essential for debugging and monitoring
-2. **Shutdown pools**: Always call `shutdown()` when done
-3. **Separate pools by concern**: Different task types → different pools
-4. **Match pool size to workload**: CPU-bound vs I/O-bound tasks
-5. **Monitor pool metrics**: Track thread count, queue size, etc.
-6. **Test under load**: Verify pool behavior with realistic task volumes
-7. **Document pool configuration**: Make sizing decisions clear
 
 ### Memory Considerations
 
@@ -1988,48 +1570,6 @@ class MonitoringUtils {
     }
 }
 ```
-
-#### Solution 3: Task Termination
-
-Ensure tasks don't run longer than necessary:
-
-```java
-public class DataProcessor {
-    public void processWithTimeout() {
-        AtomicLong startTime = new AtomicLong(System.currentTimeMillis());
-
-        TimedTask task = executor.createTimedTask(t -> {
-            // Auto-stop after 1 hour
-            if (System.currentTimeMillis() - startTime.get() > Duration.ofHours(1).toMillis()) {
-                System.out.println("Timeout reached, stopping task");
-                t.stop();
-                return;
-            }
-
-            processData();
-        })
-        .setPeriodicDelay(Duration.ofMinutes(5))
-        .build();
-
-        task.start();
-    }
-}
-```
-
-#### Solution 4: Defensive Copying in Builder
-
-The `TimedTaskBuilder` already implements defensive copying for `Duration` objects:
-
-```java
-// Inside TimedTaskBuilder
-public TimedTaskBuilder setPeriodicDelay(final Duration delay) {
-    // Creates a new Duration, breaking reference chain
-    this.periodicDelay = Duration.ofNanos(delay.toNanos());
-    return this;
-}
-```
-
-This prevents external `Duration` objects from being retained. The library handles this automatically.
 
 #### Memory-Safe Patterns
 
@@ -2167,7 +1707,7 @@ public class DataProcessor {
     }
 
     public void stop() {
-        if (processingTask != null && processingTask.isRunning()) {
+        if (processingTask != null) {
             processingTask.stop();
         }
     }
@@ -2188,47 +1728,6 @@ public void runProcessing() {
     } finally {
         // Guaranteed cleanup
         task.stop();
-    }
-}
-```
-
-#### Best Practice: Shutdown Pool Executors
-
-```java
-// ✅ GOOD: Complete shutdown sequence
-public class Application {
-    private TimedTaskPoolExecutor executor;
-    private List<TimedTask> tasks = new ArrayList<>();
-
-    public void start() {
-        executor = new TimedTaskPoolExecutor("AppPool");
-
-        // Create tasks
-        tasks.add(createTask1());
-        tasks.add(createTask2());
-
-        // Start all tasks
-        tasks.forEach(TimedTask::start);
-    }
-
-    public void shutdown() {
-        // 1. Stop all tasks
-        tasks.forEach(TimedTask::stop);
-
-        // 2. Shutdown the pool
-        executor.shutdown();
-
-        // 3. Wait for termination (with timeout)
-        try {
-            boolean terminated = executor.awaitTermination(Duration.ofSeconds(30));
-            if (!terminated) {
-                // Force shutdown if needed
-                executor.shutdownNow();
-            }
-        } catch (InterruptedException e) {
-            Thread.currentThread().interrupt();
-            executor.shutdownNow();
-        }
     }
 }
 ```
@@ -2283,13 +1782,6 @@ TimedTask healthCheck = executor.createTimedTask(t -> {
 - Task should run at specific intervals regardless of duration
 - Occasional overlaps are acceptable
 
-**Examples**:
-- Health checks / heartbeats
-- Metrics collection
-- Cache refresh (if fast)
-- Status updates
-- Sensor readings
-
 #### When to Use Repetitive (Fixed-Delay)
 
 ```java
@@ -2310,13 +1802,6 @@ TimedTask batchProcessor = executor.createTimedTask(t -> {
 - You need guaranteed rest period between executions
 - Task duration may occasionally exceed desired period
 - System needs time to recover/cool down between runs
-
-**Examples**:
-- Queue/batch processing
-- Database maintenance
-- File system operations
-- Network synchronization
-- Resource-intensive computations
 
 #### Comparison Example
 
@@ -2387,7 +1872,7 @@ Is task duration predictable and fast?
 - ✅ Bounded resource usage
 - ✅ Thread reuse efficiency
 - ✅ Centralized management
-- ❌ Tasks can affect each other
+- ❌ Tasks can affect each others performance
 - ❌ More complex configuration
 
 #### When to Use TimedTaskThreadExecutor
@@ -2507,15 +1992,6 @@ CustomThreadPool ioPool = CustomThreadPool.builder()
 
 **Problem**: Unnamed tasks make debugging, monitoring, and troubleshooting difficult.
 
-#### Why Naming Matters
-
-Task names:
-- Appear in thread dumps and profilers
-- Help identify tasks in logs
-- Make debugging significantly easier
-- Enable monitoring and alerting
-- Document task purpose in code
-
 #### Best Practice: Always Name Production Tasks
 
 ```java
@@ -2533,6 +2009,7 @@ TimedTask task = executor.createTimedTask(t -> {
 
 - TimerTaskBuider & ThreadPoolFactory both use a name, but behave differently. Find a uniform approach.
 - Callable & Future support
+- proper exception handling & reporting
 
 ## Requirements
 
