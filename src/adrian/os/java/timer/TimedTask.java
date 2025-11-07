@@ -49,7 +49,7 @@ public class TimedTask {
      * start the timer thread.
      */
     public synchronized boolean start() {
-        if (getState() == State.NOT_RUNNING) {
+        if (!isRunning()) {
             setState(State.RUNNING);
             setNextExecutionTime(LocalDateTime.now().plus(this.initialDelay));
             if ((this.name == null) || this.name.isBlank()) {
@@ -69,9 +69,11 @@ public class TimedTask {
      * stopped it can be started again.
      */
     public synchronized void stop() {
-        setState(State.NOT_RUNNING);
-        // notify waiting timer thread
-        setNextExecutionTime(null);
+        if (isRunning()) {
+            setState(State.NOT_RUNNING);
+            // notify waiting timer thread
+            setNextExecutionTime(null);
+        }
     }
 
 
@@ -80,7 +82,7 @@ public class TimedTask {
      * @return false, if called in RUNNING state.
      */
     protected boolean setName(final String name) {
-        if (getState() == State.NOT_RUNNING) {
+        if (!isRunning()) {
             this.name = name;
             return true;
         }
@@ -130,7 +132,7 @@ public class TimedTask {
      * @return false, if called in RUNNING state.
      */
     protected boolean setInitialDelay(final Duration delay) {
-        if (getState() == State.NOT_RUNNING) {
+        if (!isRunning()) {
             this.initialDelay = delay;
             return true;
         }
@@ -142,7 +144,7 @@ public class TimedTask {
      * @return false, if called in RUNNING state.
      */
     protected boolean setRepetetiveDelay(final Duration repeatDelay) {
-        if (getState() == State.NOT_RUNNING) {
+        if (!isRunning()) {
             this.repetetiveDelay = repeatDelay;
             return true;
         }
@@ -154,7 +156,7 @@ public class TimedTask {
      * @return false, if called in RUNNING state.
      */
     protected boolean setPeriodicDelay(final Duration periodDelay) {
-        if (getState() == State.NOT_RUNNING) {
+        if (!isRunning()) {
             this.periodicDelay = periodDelay;
             return true;
         }
@@ -167,7 +169,7 @@ public class TimedTask {
     private class Timer {
 
         private void runTimer() {
-            if (getState() != State.RUNNING) {
+            if (!isRunning()) {
                 return;
             }
             try {
